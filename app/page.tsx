@@ -68,6 +68,7 @@ export default function LoginPage() {
     appError,
     scanError,
     isLoggingIn,
+    tokenExpiredError,
     loginForm,
     onLoginSubmit,
     onQRSubmit,
@@ -330,6 +331,7 @@ export default function LoginPage() {
         open={showTokenModal}
         onClose={handleCloseTokenModal}
         onScanSuccess={onQRSubmit}
+        expiredError={tokenExpiredError}
       />
     </>
   );

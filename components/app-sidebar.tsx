@@ -13,12 +13,14 @@ import {
   LogOut,
   Download,
   ShieldCheck,
+  Activity,
 } from 'lucide-react'
 import { useSidebar } from '@/context/sidebar-context'
 import { authAPI } from '@/api/auth'
 
 const navItems = [
   { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { label: 'Monitoring Absen', href: '/admin/monitoring', icon: Activity },
   { label: 'Token Generation', href: '/admin/token', icon: Key },
   { label: 'Export Data', href: '/admin/export', icon: Download },
 ]

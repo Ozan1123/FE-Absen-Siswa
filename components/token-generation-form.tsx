@@ -12,9 +12,16 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useGenerateToken } from '@/lib/api-hooks'
-import { Zap, Copy, Check, Clock, Timer, Sparkles, RefreshCw } from 'lucide-react'
+import { Zap, Copy, Check, Clock, Tag, Sparkles, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react'
 
 interface TokenGenerationFormProps {
   onTokenGenerated?: (token: string) => void
@@ -22,23 +29,34 @@ interface TokenGenerationFormProps {
 
 export function TokenGenerationForm({ onTokenGenerated }: TokenGenerationFormProps) {
   const [generatedToken, setGeneratedToken] = useState<string | null>(null)
+  const [generatedCategory, setGeneratedCategory] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   const form = useForm({
-    defaultValues: { duration: '20', late_after: '10' },
+    defaultValues: { duration: '20', category: 'hadir' },
   })
 
-  const { generate, loading } = useGenerateToken()
+  const { generate, generateHadir, generateTelat, loading } = useGenerateToken()
 
-  async function onSubmit(values: { duration: string; late_after: string }) {
+  async function onSubmit(values: { duration: string; category: string }) {
     setGeneratedToken(null)
     const result = await generate({
       duration: parseInt(values.duration),
-      late_after: parseInt(values.late_after),
+      category: values.category as 'hadir' | 'telat',
     })
     if (result) {
-      form.reset()
       setGeneratedToken(result.token_code)
+      setGeneratedCategory(values.category)
+      onTokenGenerated?.(result.token_code)
+    }
+  }
+
+  async function handleQuickGenerate(type: 'hadir' | 'telat') {
+    setGeneratedToken(null)
+    const result = type === 'hadir' ? await generateHadir() : await generateTelat()
+    if (result) {
+      setGeneratedToken(result.token_code)
+      setGeneratedCategory(type)
       onTokenGenerated?.(result.token_code)
     }
   }
@@ -52,6 +70,7 @@ export function TokenGenerationForm({ onTokenGenerated }: TokenGenerationFormPro
 
   function handleReset() {
     setGeneratedToken(null)
+    setGeneratedCategory(null)
     form.reset()
   }
 
@@ -89,6 +108,54 @@ export function TokenGenerationForm({ onTokenGenerated }: TokenGenerationFormPro
             <div className="h-1 w-full bg-gradient-to-r from-orange-600 via-orange-400 to-amber-400" />
 
             <div className="p-6 space-y-6">
+
+              {/* ── Quick Generate Buttons ── */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
+              >
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-widest mb-3">Quick Generate</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleQuickGenerate('hadir')}
+                    className="
+                      h-12 rounded-xl font-semibold text-sm
+                      bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98]
+                      transition-all duration-200 shadow-lg shadow-emerald-900/30
+                      disabled:opacity-60 disabled:cursor-not-allowed
+                    "
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Generate QR Hadir
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleQuickGenerate('telat')}
+                    className="
+                      h-12 rounded-xl font-semibold text-sm
+                      bg-amber-600 hover:bg-amber-500 active:scale-[0.98]
+                      transition-all duration-200 shadow-lg shadow-amber-900/30
+                      disabled:opacity-60 disabled:cursor-not-allowed
+                    "
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Generate QR Telat
+                  </Button>
+                </div>
+              </motion.div>
+
+              {/* ── Divider ── */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-slate-700/50" />
+                <span className="text-xs text-slate-600 uppercase tracking-widest">atau custom</span>
+                <div className="flex-1 h-px bg-slate-700/50" />
+              </div>
+
+              {/* ── Custom Form ── */}
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
@@ -140,7 +207,7 @@ export function TokenGenerationForm({ onTokenGenerated }: TokenGenerationFormPro
                       />
                     </motion.div>
 
-                    {/* Late After */}
+                    {/* Category */}
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -148,7 +215,7 @@ export function TokenGenerationForm({ onTokenGenerated }: TokenGenerationFormPro
                     >
                       <FormField
                         control={form.control}
-                        name="late_after"
+                        name="category"
                         render={({ field }) => (
                           <FormItem>
                             <div className="
@@ -158,25 +225,38 @@ export function TokenGenerationForm({ onTokenGenerated }: TokenGenerationFormPro
                             ">
                               <div className="flex items-center gap-2 mb-3">
                                 <div className="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
-                                  <Timer className="h-3 w-3 text-amber-400" />
+                                  <Tag className="h-3 w-3 text-amber-400" />
                                 </div>
-                                <span className="text-xs font-medium text-slate-400">Batas Terlambat</span>
+                                <span className="text-xs font-medium text-slate-400">Kategori</span>
                               </div>
                               <FormControl>
-                                <div className="flex items-baseline gap-1.5">
-                                  <Input
-                                    type="number"
-                                    disabled={loading}
-                                    className="
-                                      border-0 bg-transparent text-white text-3xl font-bold h-auto p-0
-                                      focus-visible:ring-0 focus-visible:ring-offset-0
-                                      [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
-                                      w-full
-                                    "
-                                    {...field}
-                                  />
-                                  <span className="text-sm text-slate-500 shrink-0">menit</span>
-                                </div>
+                                <Select
+                                  value={field.value}
+                                  onValueChange={field.onChange}
+                                  disabled={loading}
+                                >
+                                  <SelectTrigger className="
+                                    border-0 bg-transparent text-white text-lg font-bold h-auto p-0
+                                    focus:ring-0 focus:ring-offset-0 w-full
+                                    shadow-none
+                                  ">
+                                    <SelectValue placeholder="Pilih kategori" />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
+                                    <SelectItem value="hadir">
+                                      <span className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                                        Hadir
+                                      </span>
+                                    </SelectItem>
+                                    <SelectItem value="telat">
+                                      <span className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-amber-400" />
+                                        Telat
+                                      </span>
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </FormControl>
                             </div>
                             <FormMessage className="text-xs text-red-400 mt-1" />
@@ -192,7 +272,9 @@ export function TokenGenerationForm({ onTokenGenerated }: TokenGenerationFormPro
                     className="flex items-center justify-between text-xs text-slate-600"
                   >
                     <span>Token aktif selama <span className="text-slate-400">{form.watch('duration')} menit</span></span>
-                    <span>Terlambat jika &gt; <span className="text-slate-400">{form.watch('late_after')} menit</span></span>
+                    <span>Kategori: <span className={`font-semibold ${form.watch('category') === 'hadir' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      {form.watch('category') === 'hadir' ? 'HADIR' : 'TELAT'}
+                    </span></span>
                   </motion.div>
 
                   {/* Submit */}
@@ -224,7 +306,7 @@ export function TokenGenerationForm({ onTokenGenerated }: TokenGenerationFormPro
                             className="flex items-center gap-2"
                           >
                             <Sparkles className="h-4 w-4" />
-                            <span>Generate Token</span>
+                            <span>Generate Custom Token</span>
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -247,17 +329,33 @@ export function TokenGenerationForm({ onTokenGenerated }: TokenGenerationFormPro
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             className="bg-slate-900/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-xl shadow-black/30 overflow-hidden"
           >
-            {/* Top accent bar — green when success */}
-            <div className="h-1 w-full bg-gradient-to-r from-emerald-600 via-emerald-400 to-teal-400" />
+            {/* Top accent bar — green for hadir, amber for telat */}
+            <div className={`h-1 w-full bg-gradient-to-r ${
+              generatedCategory === 'telat'
+                ? 'from-amber-600 via-amber-400 to-yellow-400'
+                : 'from-emerald-600 via-emerald-400 to-teal-400'
+            }`} />
 
             <div className="p-6 space-y-5">
 
               {/* Status badge */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs font-semibold text-emerald-400 uppercase tracking-widest">
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${
+                    generatedCategory === 'telat' ? 'bg-amber-400' : 'bg-emerald-400'
+                  }`} />
+                  <span className={`text-xs font-semibold uppercase tracking-widest ${
+                    generatedCategory === 'telat' ? 'text-amber-400' : 'text-emerald-400'
+                  }`}>
                     Token Aktif
+                  </span>
+                  {/* Category badge */}
+                  <span className={`ml-2 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${
+                    generatedCategory === 'telat'
+                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                      : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                  }`}>
+                    {generatedCategory === 'telat' ? 'TELAT' : 'HADIR'}
                   </span>
                 </div>
                 <button
@@ -323,10 +421,12 @@ export function TokenGenerationForm({ onTokenGenerated }: TokenGenerationFormPro
 
               {/* Footer info */}
               <p className="text-center text-xs text-slate-600">
-                Bagikan token ini kepada siswa · Berlaku{' '}
-                <span className="text-slate-500">{form.getValues('duration')} menit</span>
-                {' '}· Terlambat setelah{' '}
-                <span className="text-slate-500">{form.getValues('late_after')} menit</span>
+                Bagikan token ini kepada siswa · Kategori:{' '}
+                <span className={`font-semibold ${
+                  generatedCategory === 'telat' ? 'text-amber-400' : 'text-emerald-400'
+                }`}>
+                  {generatedCategory === 'telat' ? 'TELAT' : 'HADIR'}
+                </span>
               </p>
             </div>
           </motion.div>
