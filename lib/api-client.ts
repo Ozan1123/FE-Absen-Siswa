@@ -12,7 +12,7 @@ import {
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
-  '/api/v1'
+  'https://api-absiswa.reihan.biz.id/api/v1'
 
 interface FetchOptions extends RequestInit {
   headers?: Record<string, string>
@@ -99,6 +99,13 @@ export const tokenAPI = {
     apiCall<Token>('/token/create/telat', {
       method: 'POST',
     }),
+    
+  getImageUrl: (id: number) => `${API_URL}/token/${id}/image`,
+  
+  deactivate: (id: number) =>
+    apiCall<ApiResponse<string>>(`/token/${id}/deactivate`, {
+      method: 'POST',
+    }),
 }
 
 export const dashboardAPI = {
@@ -120,6 +127,40 @@ export const logsAPI = {
   getHistory: () => apiCall('/logs/'),
 }
 
+export const importAPI = {
+  importUsers: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    // We fetch directly because apiCall sets Content-Type to application/json by default
+    const token = localStorage.getItem('authToken')
+    return fetch(`${API_URL}/import/users`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    }).then(r => r.json())
+  }
+}
+
+export const notificationAPI = {
+  getSettings: () => apiCall('/notification/settings'),
+  updateSettings: (payload: any) =>
+    apiCall('/notification/settings', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  test: () => apiCall('/notification/test', { method: 'POST' }),
+  getLogs: () => apiCall('/notification/logs'),
+  trigger: (payload: any) =>
+    apiCall('/notification/trigger', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getWaStatus: () => apiCall('/notification/wa/status'),
+  pairWa: () => apiCall('/notification/wa/pair', { method: 'POST' }),
+  logoutWa: () => apiCall('/notification/wa/logout', { method: 'POST' }),
+}
+
 export const monitoringAPI = {
   getStudents: (params?: { class_group?: string; status?: string }): Promise<MonitoringApiResponse | ApiError> => {
     const searchParams = new URLSearchParams()
@@ -139,6 +180,8 @@ export const monitoringAPI = {
   getTopAlfa: () => apiCall<TopAlfaStudent[]>('/attendance/top-alfa'),
   
   getMonthlyRecap: () => apiCall<MonthlyRecapData[]>('/attendance/monthly-recap'),
+  
+  getLogs: () => apiCall('/attendance/logs'),
 }
 
 export interface UserDetails {
@@ -160,6 +203,7 @@ export const usersAPI = {
     if (params?.search) searchParams.append('search', params.search)
     return apiCall<{ users: UserDetails[]; total: number }>(`/users?${searchParams.toString()}`)
   },
+  getById: (id: number) => apiCall<UserDetails>(`/users/${id}`),
   create: (payload: {
     nisn: string
     full_name: string
@@ -196,7 +240,9 @@ export const usersAPI = {
     apiCall<ApiResponse<string>>(`/users/${id}`, {
       method: 'DELETE',
     }),
+  resetPassword: (id: number) =>
+    apiCall<ApiResponse<string>>(`/users/${id}/reset-password`, {
+      method: 'POST',
+    }),
 }
-
-
 

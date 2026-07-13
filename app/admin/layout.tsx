@@ -32,7 +32,7 @@ export default function AdminLayout({
   return (
     <AdminGuard>
       <SidebarProvider>
-        <div className="admin-theme min-h-screen bg-background text-foreground">
+        <div className="min-h-screen bg-background text-foreground">
           <AppSidebar />
           <Header />
           <MainContent>{children}</MainContent>
