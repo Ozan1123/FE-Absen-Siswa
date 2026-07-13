@@ -83,9 +83,8 @@ function ReceiptRow({
         {label}
       </span>
       <span
-        className={`text-xs text-right ${mono ? "font-mono tracking-wider" : "font-medium"} ${
-          valueClassName ?? "text-[#3d3d3a]"
-        }`}
+        className={`text-xs text-right ${mono ? "font-mono tracking-wider" : "font-medium"} ${valueClassName ?? "text-[#3d3d3a]"
+          }`}
       >
         {value}
       </span>
@@ -124,11 +123,23 @@ function StudentDashboard() {
     try {
       setLogsLoading(true);
       const result = await logsAPI.getHistory();
+
       if ("data" in result && result.data) {
-        setLogs((result.data as any) || []);
+        const payload = result.data as unknown;
+        const normalizedLogs = Array.isArray(payload)
+          ? payload
+          : Array.isArray((payload as { logs?: unknown }).logs)
+            ? (payload as { logs: LogEntry[] }).logs
+            : Array.isArray((payload as { data?: unknown }).data)
+              ? (payload as { data: LogEntry[] }).data
+              : [];
+
+        setLogs(normalizedLogs as LogEntry[]);
+      } else {
+        setLogs([]);
       }
     } catch {
-      // silent
+      setLogs([]);
     } finally {
       setLogsLoading(false);
     }
@@ -541,17 +552,14 @@ export default function LoginPage() {
                     transition={{ delay: 0.5 }}
                     className="mt-4 flex items-center justify-center"
                   >
-                    <div className={`flex items-center gap-2 rounded-full px-4 py-1.5 border ${
-                      attendanceStatus === 'telat'
-                        ? 'bg-[#b89750]/10 border-[#b89750]/30'
-                        : 'bg-[#008751]/10 border-[#008751]/30'
-                    }`}>
-                      <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
-                        attendanceStatus === 'telat' ? 'bg-[#b89750]' : 'bg-[#008751]'
-                      }`} />
-                      <span className={`text-xs font-semibold tracking-widest ${
-                        attendanceStatus === 'telat' ? 'text-[#b89750]' : 'text-[#008751]'
+                    <div className={`flex items-center gap-2 rounded-full px-4 py-1.5 border ${attendanceStatus === 'telat'
+                      ? 'bg-[#b89750]/10 border-[#b89750]/30'
+                      : 'bg-[#008751]/10 border-[#008751]/30'
                       }`}>
+                      <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${attendanceStatus === 'telat' ? 'bg-[#b89750]' : 'bg-[#008751]'
+                        }`} />
+                      <span className={`text-xs font-semibold tracking-widest ${attendanceStatus === 'telat' ? 'text-[#b89750]' : 'text-[#008751]'
+                        }`}>
                         {attendanceStatus === 'telat' ? 'TELAT' : 'HADIR'}
                       </span>
                     </div>

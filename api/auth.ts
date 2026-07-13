@@ -1,6 +1,6 @@
 import { LoginCredentials, LoginResponse, User } from "@/types/auth.types";
 
-const API_BASE_URL = "/api/v1";
+const API_BASE_URL = "https://api-absiswa.reihan.biz.id/api/v1";
 
 export const authAPI = {
   login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
@@ -57,6 +57,21 @@ export const authAPI = {
 
     const responseData = await response.json();
     return responseData.data as User;
+  },
+
+  register: async (data: Record<string, unknown>): Promise<unknown> => {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || errorData.message || "Failed to register");
+    }
+    return response.json();
   },
 
   submitAbsenToken: async (

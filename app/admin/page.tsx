@@ -1,242 +1,340 @@
 'use client'
 
-import React from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import {
-  Users,
-  CheckCircle2,
-  HeartPulse,
-  AlertTriangle,
-  Award,
-  Calendar
-} from 'lucide-react'
-import { CustomSvgChart } from '@/components/custom-svg-chart'
-import { AdvancedAttendanceTable, StudentAttendance } from '@/components/advanced-attendance-table'
-import { LoadingSpinner } from '@/components/ui/loading-spinner'
-import { useAttendanceChart, useMonitoringData } from '@/lib/api-hooks'
-import { containerVariants, itemVariants } from '@/lib/constants'
 
-export default function DashboardPage() {
-  const { data: chartData, loading: chartLoading } = useAttendanceChart()
-  const { data: monitoringData, loading: monitoringLoading, updateStatus, updateMultipleStatuses } = useMonitoringData({
-    class_group: 'all',
-    status: 'all'
-  })
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { useAttendanceStats, useMonitoringData } from '@/lib/api-hooks'
 
-  const isDataLoading = chartLoading || monitoringLoading
-
-  // Compute live statistics from monitoring data
-  const rawStudents = (monitoringData?.data || []) as StudentAttendance[]
-  const totalStudents = rawStudents.length
-
-  const countHadir = rawStudents.filter((s) => s.status === 'hadir').length
-  const countTelat = rawStudents.filter((s) => s.status === 'telat').length
-  const countSakit = rawStudents.filter((s) => s.status === 'sakit').length
-  const countAlfa = rawStudents.filter((s) => s.status === 'alfa').length
-  const countBelumAbsen = rawStudents.filter((s) => s.status === 'belum_absen').length
-
-  const totalPresent = countHadir + countTelat
-  const attendanceRate = totalStudents > 0 ? Math.round((totalPresent / totalStudents) * 100) : 0
-
-  // Formatting 7 days daily trends data (Hadir, Telat, Sakit, Alpa, Belum)
-  const trend7DaysData = chartData && chartData.length > 0
-    ? chartData.map((item: any) => {
-        const total = item.total || 0
-        const dateFormatted = new Date(item.date).toLocaleDateString('id-ID', { weekday: 'short' })
-        return {
-          date: dateFormatted,
-          Hadir: Math.round(total * 0.70),
-          Telat: Math.round(total * 0.15),
-          Sakit: Math.round(total * 0.08),
-          Alpa: Math.round(total * 0.05),
-          Belum: Math.round(total * 0.02)
-        }
-      })
-    : Array.from({ length: 7 }, (_, i) => ({
-        date: `H-${7 - i}`,
-        Hadir: 0,
-        Telat: 0,
-        Sakit: 0,
-        Alpa: 0,
-        Belum: 0
-      }))
-
-  const today = new Date().toLocaleDateString('id-ID', {
+/* ── helpers ── */
+function formatDate() {
+  return new Date().toLocaleDateString('id-ID', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
-    day: 'numeric'
+    day: 'numeric',
+  })
+}
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+type StatusVariant = 'hadir' | 'telat' | 'sakit' | 'alpa' | 'belum'
+
+function statusVariant(status: string): StatusVariant {
+  const s = status?.toLowerCase() ?? ''
+  if (s === 'hadir') return 'hadir'
+  if (s === 'telat' || s === 'terlambat') return 'telat'
+  if (s === 'sakit' || s === 'izin') return 'sakit'
+  if (s === 'alpa' || s === 'alfa') return 'alpa'
+  return 'belum'
+}
+
+function statusLabel(status: string) {
+  const v = statusVariant(status)
+  if (v === 'hadir') return 'Hadir'
+  if (v === 'telat') return 'Telat'
+  if (v === 'sakit') return 'Sakit'
+  if (v === 'alpa') return 'Alpa'
+  return 'Belum Absen'
+}
+
+/* ── Stat Card ── */
+const statCardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.08, duration: 0.5, ease: 'easeOut' as const },
+  }),
+}
+
+interface StatCardProps {
+  label: string
+  value: string | number
+  icon: React.ReactNode
+  accentColor: string
+  index: number
+  extra?: React.ReactNode
+  pulse?: boolean
+}
+
+function StatCard({ label, value, icon, accentColor, index, extra, pulse }: StatCardProps) {
+  return (
+    <motion.div
+      custom={index}
+      initial="hidden"
+      animate="visible"
+      variants={statCardVariants}
+      className="bg-card rounded-xl p-5 border border-border shadow-sm relative overflow-hidden flex flex-col justify-between"
+      style={{ borderTopWidth: 4, borderTopColor: accentColor }}
+    >
+      {pulse && (
+        <div className="absolute -right-4 -top-4 w-16 h-16 bg-[var(--status-alpa)] rounded-full animate-ping opacity-75" />
+      )}
+      <div className="flex justify-between items-start relative z-10">
+        <div className="text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground font-sans">
+          {label}
+        </div>
+        <div style={{ color: accentColor }}>{icon}</div>
+      </div>
+      <div className="mt-4 flex items-end justify-between relative z-10">
+        <div className="text-4xl font-bold font-sans text-foreground">{value}</div>
+        {extra}
+      </div>
+    </motion.div>
+  )
+}
+
+/* ── Page ── */
+export default function DashboardPage() {
+  const { stats, loading: statsLoading } = useAttendanceStats()
+  const [filters] = useState<{ class_group?: string; status?: string }>({})
+  const { data: monitoringRaw, loading: monitoringLoading, updateStatus } = useMonitoringData(filters)
+  const [search, setSearch] = useState('')
+  const [classFilter, setClassFilter] = useState('')
+
+  const totalHadir = (stats?.totalHadir ?? 0) + (stats?.totalTelat ?? 0)
+  const totalSakit = stats?.totalSakit ?? 0
+  const totalAlpa = stats?.totalAlfa ?? 0
+  const totalStudents = stats?.todayAttendance ?? 0
+
+  const monitoringData = monitoringRaw?.data ?? []
+
+  const filteredData = monitoringData.filter((s: { name?: string; nisn?: string; class_group?: string }) => {
+    const name = (s.name ?? '').toLowerCase()
+    const nisn = (s.nisn ?? '').toLowerCase()
+    const kelas = s.class_group ?? ''
+    const matchSearch = !search || name.includes(search.toLowerCase()) || nisn.includes(search.toLowerCase())
+    const matchClass = !classFilter || kelas === classFilter
+    return matchSearch && matchClass
   })
 
-  // Handle local state edit fallback for inline remarks/timestamp updates
-  const handleUpdateDetails = (
-    userId: number,
-    timestamp: string | undefined,
-    remarks: string | undefined
-  ) => {
-    // Remarks inline update simulation or backend sync if supported
-    // For now we simulate it since backend stores remarks inside logs
-    // We trigger a status reload to keep everything sync
+  const handleStatusChange = async (userId: number, status: string) => {
+    await updateStatus(userId, status)
   }
 
   return (
-    <div className="space-y-6 pb-8">
-      {/* Welcome Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="relative overflow-hidden rounded-xl bg-white border border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-600 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-600"></span>
-            </span>
-            <span className="text-[10px] text-indigo-700 font-bold tracking-[1.5px] uppercase">
-              SISTEM PRESENSI AKTIF (SLATE/INDIGO)
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-1 font-[family-name:var(--font-playfair)]">
+    <div className="flex flex-col gap-8 max-w-7xl mx-auto w-full">
+      {/* Welcome */}
+      <section className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-6">
+        <div>
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-primary tracking-tight leading-tight">
             Selamat Datang, Admin
-          </h1>
-          <p className="text-slate-500 text-xs font-light flex items-center gap-1.5 leading-none">
-            <Calendar className="h-3.5 w-3.5 text-slate-400" />
-            {today}
+          </h2>
+          <p className="text-base text-muted-foreground mt-1 font-sans">
+            Ringkasan presensi harian siswa hari ini.
           </p>
         </div>
-      </motion.div>
+        <div className="flex items-center gap-2 bg-card px-4 py-2 rounded-lg border border-border shadow-sm">
+          <span className="material-symbols-outlined text-primary text-[18px]">calendar_today</span>
+          <span className="text-sm font-semibold text-foreground font-sans">{formatDate()}</span>
+        </div>
+      </section>
 
-      {/* Real-time Stats Grid */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="grid grid-cols-2 lg:grid-cols-5 gap-4"
-      >
-        {/* Card 1: Total Siswa */}
-        <motion.div
-          variants={itemVariants}
-          className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between h-[120px]"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Total Siswa</span>
-            <Users className="h-5 w-5 text-slate-400" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-950">{totalStudents}</div>
-            <div className="text-[10px] text-slate-500 mt-1">
-              <span className="font-semibold text-slate-700">{countBelumAbsen}</span> Belum Absen
-            </div>
-          </div>
-        </motion.div>
+      {/* Stats Grid */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Total Absen Hari Ini"
+          value={statsLoading ? '...' : totalStudents.toLocaleString('id-ID')}
+          icon={<span className="material-symbols-outlined text-[22px]">groups</span>}
+          accentColor="var(--border)"
+          index={0}
+        />
+        <StatCard
+          label="Hadir & Telat"
+          value={statsLoading ? '...' : totalHadir.toLocaleString('id-ID')}
+          icon={<span className="material-symbols-outlined text-[22px]">how_to_reg</span>}
+          accentColor="var(--status-hadir-text)"
+          index={1}
+          extra={
+            !statsLoading ? (
+              <div className="flex flex-col text-right">
+                <span className="text-[12px] font-semibold" style={{ color: 'var(--status-hadir-text)' }}>
+                  +{stats?.totalHadir ?? 0} Tepat
+                </span>
+                <span className="text-[12px] font-semibold" style={{ color: 'var(--status-telat-text)' }}>
+                  +{stats?.totalTelat ?? 0} Telat
+                </span>
+              </div>
+            ) : undefined
+          }
+        />
+        <StatCard
+          label="Sakit / Izin"
+          value={statsLoading ? '...' : totalSakit.toLocaleString('id-ID')}
+          icon={<span className="material-symbols-outlined text-[22px]">medication</span>}
+          accentColor="var(--status-sakit-text)"
+          index={2}
+        />
+        <StatCard
+          label="Alpa"
+          value={statsLoading ? '...' : totalAlpa.toLocaleString('id-ID')}
+          icon={<span className="material-symbols-outlined text-[22px]">person_off</span>}
+          accentColor="var(--primary)"
+          index={3}
+          pulse={totalAlpa > 0}
+          extra={
+            totalAlpa > 0 ? (
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-[var(--status-alpa)] px-2 py-1 rounded font-sans">
+                Perlu Perhatian
+              </span>
+            ) : undefined
+          }
+        />
+      </section>
 
-        {/* Card 2: Hadir & Terlambat */}
-        <motion.div
-          variants={itemVariants}
-          className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between h-[120px]"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Hadir & Telat</span>
-            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-950">{totalPresent}</div>
-            <div className="text-[10px] text-slate-500 mt-1">
-              <span className="font-semibold text-emerald-600">{countHadir} H</span> |{' '}
-              <span className="font-semibold text-amber-600">{countTelat} T</span>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Card 3: Sakit */}
-        <motion.div
-          variants={itemVariants}
-          className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between h-[120px]"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Sakit</span>
-            <HeartPulse className="h-5 w-5 text-orange-500" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-950">{countSakit}</div>
-            <div className="text-[10px] text-orange-600 font-medium mt-1">
-              Dokumentasi Medis
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Card 4: Alpa */}
-        <motion.div
-          variants={itemVariants}
-          className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between h-[120px]"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Alpa</span>
-            <AlertTriangle className="h-5 w-5 text-rose-500" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-950">{countAlfa}</div>
-            <div className="text-[10px] text-rose-600 font-medium mt-1 animate-pulse">
-              Butuh Tindak Lanjut
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Card 5: Rasio Kehadiran */}
-        <motion.div
-          variants={itemVariants}
-          className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between h-[120px] bg-indigo-50/20 border-indigo-100"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-indigo-700">Rasio Kehadiran</span>
-            <Award className="h-5 w-5 text-indigo-600" />
-          </div>
-          <div>
-            <div className="text-2xl font-black text-indigo-900">{attendanceRate}%</div>
-            <div className="text-[10px] text-indigo-600 font-medium mt-1">
-              Target sekolah &gt; 90%
-            </div>
-          </div>
-        </motion.div>
-      </motion.div>
-
-      {/* Main Trends Custom SVG Stacked Bar Chart */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
+      {/* Attendance Table */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, delay: 0.1 }}
+        transition={{ delay: 0.4, duration: 0.5 }}
+        className="bg-card border border-border rounded-xl shadow-sm overflow-hidden"
       >
-        {isDataLoading ? (
-          <div className="bg-white border border-slate-200 rounded-xl p-16 flex items-center justify-center h-72 shadow-sm">
-            <LoadingSpinner message="Menyiapkan infografis tren kehadiran..." />
+        {/* Table Header & Filters */}
+        <div className="p-4 border-b border-border bg-background flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h3 className="text-lg font-semibold font-sans text-foreground">
+            Presensi Harian Siswa (Hari Ini)
+          </h3>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]">search</span>
+              <Input
+                placeholder="Cari NISN atau Nama..."
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <select
+              value={classFilter}
+              onChange={(e) => setClassFilter(e.target.value)}
+              className="w-full sm:w-32 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary cursor-pointer font-sans"
+            >
+              <option value="">Semua Kelas</option>
+              {Array.from(new Set(monitoringData.map((s) => s.class_group))).filter(Boolean).map((k) => (
+                <option key={k} value={k}>{k}</option>
+              ))}
+            </select>
           </div>
-        ) : (
-          <CustomSvgChart data={trend7DaysData} />
-        )}
-      </motion.div>
-
-      {/* Main Today's Attendance Table */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, delay: 0.2 }}
-        className="space-y-4"
-      >
-        <div>
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">Presensi Harian Siswa (Hari Ini)</h2>
-          <p className="text-xs text-slate-500 font-light">Kelola log dan perbarui status absensi siswa secara langsung</p>
         </div>
 
-        <AdvancedAttendanceTable
-          students={rawStudents}
-          loading={isDataLoading}
-          onUpdateStatus={updateStatus}
-          onUpdateMultipleStatuses={updateMultipleStatuses}
-          onUpdateDetails={handleUpdateDetails}
-        />
-      </motion.div>
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr className="bg-accent text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground border-b border-border font-sans">
+                <th className="p-4 w-12 text-center">
+                  <input type="checkbox" className="rounded border-border text-primary focus:ring-primary cursor-pointer" />
+                </th>
+                <th className="p-4">NISN</th>
+                <th className="p-4">Nama Siswa</th>
+                <th className="p-4">Kelas</th>
+                <th className="p-4">Waktu</th>
+                <th className="p-4">Status</th>
+                <th className="p-4 text-right">Aksi Cepat</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm font-sans">
+              {monitoringLoading ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                    Memuat data...
+                  </td>
+                </tr>
+              ) : filteredData.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                    Tidak ada data ditemukan.
+                  </td>
+                </tr>
+              ) : (
+                filteredData.slice(0, 10).map((student) => {
+                  const id = student.id
+                  const name = student.name ?? '-'
+                  const nisn = student.nisn ?? '-'
+                  const kelas = student.class_group ?? '-'
+                  const waktu = student.timestamp ? new Date(student.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-'
+                  const status = student.status ?? 'belum_absen'
+                  const variant = statusVariant(status)
+
+                  return (
+                    <tr
+                      key={id}
+                      className={`border-b border-border transition-colors ${
+                        variant === 'telat'
+                          ? 'bg-[var(--status-telat)]/20 hover:bg-[var(--status-telat)]/40'
+                          : variant === 'alpa'
+                          ? 'bg-[var(--status-alpa)]/20 hover:bg-[var(--status-alpa)]/40'
+                          : 'hover:bg-muted/50'
+                      }`}
+                    >
+                      <td className="p-4 text-center">
+                        <input type="checkbox" className="rounded border-border text-primary focus:ring-primary cursor-pointer" />
+                      </td>
+                      <td className="p-4 font-mono text-sm text-muted-foreground">{nisn}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-accent text-foreground flex items-center justify-center font-bold text-xs uppercase font-sans">
+                            {getInitials(name)}
+                          </div>
+                          <span className="font-semibold text-foreground">{name}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">{kelas}</td>
+                      <td className="p-4 text-muted-foreground font-mono">{waktu}</td>
+                      <td className="p-4">
+                        <Badge variant={variant}>{statusLabel(status)}</Badge>
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {(['hadir', 'sakit', 'alfa'] as const).map((s) => {
+                            const hoverBg = s === 'hadir' ? 'hover:bg-[var(--status-hadir)]' : s === 'sakit' ? 'hover:bg-[var(--status-sakit)]' : 'hover:bg-[var(--status-alpa)]'
+                            const hoverText = s === 'hadir' ? 'hover:text-[var(--status-hadir-text)]' : s === 'sakit' ? 'hover:text-[var(--status-sakit-text)]' : 'hover:text-primary'
+                            return (
+                              <button
+                                key={s}
+                                onClick={() => handleStatusChange(id, s)}
+                                title={`Set ${s.charAt(0).toUpperCase() + s.slice(1)}`}
+                                className={`w-8 h-8 rounded-lg bg-accent text-muted-foreground text-xs font-bold transition-colors flex items-center justify-center ${hoverBg} ${hoverText}`}
+                              >
+                                {s[0].toUpperCase()}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="p-4 border-t border-border bg-background flex justify-between items-center text-sm text-muted-foreground font-sans">
+          <span>
+            Menampilkan 1-{Math.min(10, filteredData.length)} dari {filteredData.length} siswa
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled>
+              Sebelumnya
+            </Button>
+            <Button size="sm">
+              Selanjutnya
+            </Button>
+          </div>
+        </div>
+      </motion.section>
     </div>
   )
 }

@@ -2,301 +2,302 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { useMonitoringData, useAvailableClasses } from '@/lib/api-hooks'
-import { containerVariants, itemVariants } from '@/lib/constants'
-import { MonitoringTable } from '@/components/monitoring-table'
-import { StatsCard } from '@/components/stats-card'
+
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { toast } from 'sonner'
-import { Users, CheckCircle, Clock, AlertTriangle, Activity, XCircle, RotateCcw } from 'lucide-react'
+import { useMonitoringData, useAvailableClasses } from '@/lib/api-hooks'
 
-const MAJORS = [
-  { id: 'RPL', name: 'RPL', fullName: 'Rekayasa Perangkat Lunak' },
-  { id: 'TKJ', name: 'TKJ', fullName: 'Teknik Komputer & Jaringan' },
-  { id: 'DKV', name: 'DKV', fullName: 'Desain Komunikasi Visual' },
-  { id: 'PKM', name: 'PKM', fullName: 'Perbankan & Keuangan Mikro' },
-  { id: 'TOI', name: 'TOI', fullName: 'Teknik Otomasi Industri' },
-]
+/* ── helpers ── */
+type StatusVariant = 'hadir' | 'telat' | 'sakit' | 'alpa' | 'belum'
 
-export default function MonitoringPage() {
-  const [angkatanFilter, setAngkatanFilter] = useState<string>('all')
-  const [jurusanFilter, setJurusanFilter] = useState<string>('all')
-  const [kelasNumFilter, setKelasNumFilter] = useState<string>('all')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+function statusVariant(status: string): StatusVariant {
+  const s = status?.toLowerCase() ?? ''
+  if (s === 'hadir') return 'hadir'
+  if (s === 'telat' || s === 'terlambat') return 'telat'
+  if (s === 'sakit' || s === 'izin') return 'sakit'
+  if (s === 'alpa' || s === 'alfa') return 'alpa'
+  return 'belum'
+}
 
-  // Fetch daftar kelas secara dinamis dari API
-  const { classes } = useAvailableClasses()
+function statusLabel(status: string) {
+  const v = statusVariant(status)
+  if (v === 'hadir') return 'Hadir'
+  if (v === 'telat') return 'Telat'
+  if (v === 'sakit') return 'Sakit'
+  if (v === 'alpa') return 'Alpa'
+  return 'Belum Absen'
+}
 
-  // Dynamic list parsing dari data backend dengan fallback standar
-  const angkatanList = classes.length > 0 
-    ? Array.from(new Set(classes.map(c => c.name.split('-')[0]))).filter(Boolean).sort()
-    : ['X', 'XI', 'XII']
-
-  const jurusanList = classes.length > 0
-    ? Array.from(new Set(classes.map(c => c.name.split('-')[1]))).filter(Boolean).sort()
-    : ['RPL', 'TKJ', 'DKV', 'PKM', 'TOI']
-
-  const kelasList = classes.length > 0
-    ? Array.from(new Set(classes.map(c => c.name.split('-')[2]))).filter(Boolean).sort()
-    : ['1', '2', '3']
-
-  const isSpecificClassSelected = angkatanFilter !== 'all' && jurusanFilter !== 'all' && kelasNumFilter !== 'all'
-  const apiClassParam = isSpecificClassSelected ? `${angkatanFilter}-${jurusanFilter}-${kelasNumFilter}` : 'all'
-
-  const { data, loading, updateStatus } = useMonitoringData({
-    class_group: apiClassParam,
-    status: 'all',
+function formatDate() {
+  return new Date().toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
   })
+}
 
-  const handleUpdateStatus = async (id: number, newStatus: string) => {
-    try {
-      const success = await updateStatus(id, newStatus)
-      if (success) {
-        toast.success('Status berhasil diperbarui!')
-        return true
-      }
-      toast.error('Gagal memperbarui status')
-      return false
-    } catch (err) {
-      toast.error('Gagal memperbarui status')
-      return false
-    }
-  }
+/* ── Department Card ── */
+interface DeptCardProps {
+  name: string
+  percentage: number
+  color: string
+  trend?: { value: number; direction: 'up' | 'down' }
+  index: number
+}
 
-  const handleResetFilters = () => {
-    setAngkatanFilter('all')
-    setJurusanFilter('all')
-    setKelasNumFilter('all')
-    setStatusFilter('all')
-    toast.success('Filter berhasil disetel ulang')
-  }
-
-  const rawStudents = data?.data || []
-
-  // Filter out any student with "izin" status to follow the rule: "Fitur izin dihapus total dari seluruh UI dan logika"
-  const activeStudents = rawStudents.filter(s => (s.status as string) !== 'izin')
-
-  // 1. Filter data siswa berdasarkan kelas (Angkatan, Jurusan, Kelas) sebelum status filter
-  const studentsFilteredByClass = activeStudents.filter((student) => {
-    const parts = student.class_group ? student.class_group.split('-') : []
-    const studentAngkatan = parts[0] || ''
-    const studentJurusan = parts[1] || ''
-    const studentKelas = parts[2] || ''
-
-    const matchAngkatan = angkatanFilter === 'all' || studentAngkatan.toUpperCase() === angkatanFilter.toUpperCase()
-    const matchJurusan = jurusanFilter === 'all' || studentJurusan.toUpperCase() === jurusanFilter.toUpperCase()
-    const matchKelas = kelasNumFilter === 'all' || studentKelas === kelasNumFilter
-
-    return matchAngkatan && matchJurusan && matchKelas
-  })
-
-  // 2. Hitung statistik dinamis berdasarkan filter kelas aktif untuk Summary Cards
-  const dynamicSummary = {
-    total: studentsFilteredByClass.length,
-    hadir: studentsFilteredByClass.filter((s) => s.status === 'hadir').length,
-    telat: studentsFilteredByClass.filter((s) => s.status === 'telat').length,
-    alfa: studentsFilteredByClass.filter((s) => s.status === 'alfa').length,
-    sakit: studentsFilteredByClass.filter((s) => s.status === 'sakit').length,
-    belum_absen: studentsFilteredByClass.filter((s) => s.status === 'belum_absen').length,
-  }
-
-  // 3. Filter akhir untuk list tabel (termasuk status)
-  const finalStudents = studentsFilteredByClass.filter((student) => {
-    return statusFilter === 'all' || student.status === statusFilter
-  })
-
-  // 4. Hitung statistik kehadiran per jurusan secara dinamis dari raw data
-  const majorStats = MAJORS.map((major) => {
-    const majorStudents = activeStudents.filter((s) => {
-      const parts = s.class_group ? s.class_group.split('-') : []
-      return parts[1]?.toUpperCase() === major.id
-    })
-
-    const total = majorStudents.length
-    const hadir = majorStudents.filter((s) => s.status === 'hadir').length
-    const telat = majorStudents.filter((s) => s.status === 'telat').length
-    const present = hadir + telat
-    const rate = total > 0 ? Math.round((present / total) * 100) : 0
-
-    return {
-      ...major,
-      total,
-      present,
-      rate,
-    }
-  })
-
+function DeptCard({ name, percentage, color, trend, index }: DeptCardProps) {
   return (
     <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-6 pb-10"
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.06, duration: 0.4, ease: 'easeOut' as const }}
+      className="bg-card rounded-xl p-5 border border-border shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden group"
     >
-      {/* Page Header */}
-      <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-[#111111] tracking-tight mb-1 font-[family-name:var(--font-playfair)]">
-          Absensi Harian Siswa
-        </h1>
-        <p className="text-xs text-[#5a626a] font-light leading-none">
-          Kelola dan pantau status kehadiran harian kelas di sekolah.
-        </p>
-      </motion.div>
-
-      {/* Ringkasan Kehadiran per Jurusan */}
-      <motion.div variants={itemVariants} className="space-y-4">
-        <h3 className="text-[11px] font-semibold text-[#5a626a] uppercase tracking-[1.5px]">
-          Tingkat Kehadiran per Jurusan Hari Ini
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {majorStats.map((major) => (
-            <div
-              key={major.id}
-              onClick={() => setJurusanFilter(jurusanFilter === major.id ? 'all' : major.id)}
-              className={`
-                border p-4.5 cursor-pointer transition-all duration-200 relative rounded-xl flex flex-col justify-between h-28 shadow-none
-                ${jurusanFilter === major.id 
-                  ? 'border-[#006039] bg-[#006039]/5' 
-                  : 'border-[#e2e8f0] bg-white hover:border-[#cbd5e1]'
-                }
-              `}
-            >
-              {jurusanFilter === major.id && (
-                <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#006039]" />
-              )}
-              <div className="min-w-0">
-                <div className="flex items-center justify-between">
-                  <span className="text-[16px] font-bold text-[#111111]">{major.name}</span>
-                  <span className="text-[20px] font-black text-[#006039]">{major.rate}%</span>
-                </div>
-                <p className="text-[10px] text-[#5a626a] font-light truncate mt-0.5">{major.fullName}</p>
-              </div>
-              
-              <div className="w-full mt-2">
-                <div className="flex items-center justify-between text-[10px] text-[#5a626a] mb-1">
-                  <span>Kehadiran</span>
-                  <span className="font-semibold text-[#111111]">{major.present}/{major.total} siswa</span>
-                </div>
-                <div className="w-full bg-[#f4f5f6] h-[3px] rounded-full overflow-hidden">
-                  <div 
-                    className="bg-[#006039] h-[3px] transition-all duration-500 rounded-full" 
-                    style={{ width: `${major.rate}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Summary Cards */}
-      <motion.div
-        variants={containerVariants}
-        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
-      >
-        <StatsCard icon={Users} label="Total Siswa" value={dynamicSummary.total} color="blue" index={0} />
-        <StatsCard icon={CheckCircle} label="Hadir" value={dynamicSummary.hadir + dynamicSummary.telat} color="green" index={1} />
-        <StatsCard icon={Clock} label="Sakit" value={dynamicSummary.sakit} color="orange" index={2} />
-        <StatsCard icon={AlertTriangle} label="Alfa" value={dynamicSummary.alfa} color="red" index={3} />
-        <StatsCard icon={XCircle} label="Belum Absen" value={dynamicSummary.belum_absen} color="slate" index={4} />
-      </motion.div>
-
-      {/* Filters & Table */}
-      <motion.div variants={itemVariants} className="space-y-4">
-        {/* Cascade Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 bg-white p-4 rounded-xl border border-[#e2e8f0] items-end shadow-none">
-          {/* 1. Filter Angkatan */}
-          <div className="w-full">
-            <label className="text-[11px] text-[#5a626a] uppercase tracking-[1.5px] font-semibold mb-1.5 block">Angkatan</label>
-            <Select value={angkatanFilter} onValueChange={setAngkatanFilter}>
-              <SelectTrigger className="bg-[#ffffff] border-[#e2e8f0] text-[#111111] rounded-md h-[40px] text-sm font-light focus:ring-1 focus:ring-[#006039] focus:border-[#006039] shadow-none">
-                <SelectValue placeholder="Semua Tingkat" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#ffffff] border-[#e2e8f0] rounded-md text-[#111111]">
-                <SelectItem value="all">Semua Tingkat</SelectItem>
-                {angkatanList.map((ang) => (
-                  <SelectItem key={ang} value={ang}>Kelas {ang}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 2. Filter Jurusan */}
-          <div className="w-full">
-            <label className="text-[11px] text-[#5a626a] uppercase tracking-[1.5px] font-semibold mb-1.5 block">Jurusan</label>
-            <Select value={jurusanFilter} onValueChange={setJurusanFilter}>
-              <SelectTrigger className="bg-[#ffffff] border-[#e2e8f0] text-[#111111] rounded-md h-[40px] text-sm font-light focus:ring-1 focus:ring-[#006039] focus:border-[#006039] shadow-none">
-                <SelectValue placeholder="Semua Jurusan" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#ffffff] border-[#e2e8f0] rounded-md text-[#111111]">
-                <SelectItem value="all">Semua Jurusan</SelectItem>
-                {jurusanList.map((jur) => (
-                  <SelectItem key={jur} value={jur}>{jur}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 3. Filter Kelas */}
-          <div className="w-full">
-            <label className="text-[11px] text-[#5a626a] uppercase tracking-[1.5px] font-semibold mb-1.5 block">Kelas</label>
-            <Select value={kelasNumFilter} onValueChange={setKelasNumFilter}>
-              <SelectTrigger className="bg-[#ffffff] border-[#e2e8f0] text-[#111111] rounded-md h-[40px] text-sm font-light focus:ring-1 focus:ring-[#006039] focus:border-[#006039] shadow-none">
-                <SelectValue placeholder="Semua Kelas" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#ffffff] border-[#e2e8f0] rounded-md text-[#111111]">
-                <SelectItem value="all">Semua Kelas</SelectItem>
-                {kelasList.map((k) => (
-                  <SelectItem key={k} value={k}>Kelas {k}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* 4. Filter Status */}
-          <div className="w-full">
-            <label className="text-[11px] text-[#5a626a] uppercase tracking-[1.5px] font-semibold mb-1.5 block">Status</label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="bg-[#ffffff] border-[#e2e8f0] text-[#111111] rounded-md h-[40px] text-sm font-light focus:ring-1 focus:ring-[#006039] focus:border-[#006039] shadow-none">
-                <SelectValue placeholder="Semua Status" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#ffffff] border-[#e2e8f0] rounded-md text-[#111111]">
-                <SelectItem value="all">Semua Status</SelectItem>
-                <SelectItem value="hadir">Hadir</SelectItem>
-                <SelectItem value="telat">Telat</SelectItem>
-                <SelectItem value="sakit">Sakit</SelectItem>
-                <SelectItem value="alfa">Alfa</SelectItem>
-                <SelectItem value="belum_absen">Belum Absen</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 5. Reset Filter Button */}
-          <div className="w-full">
-            <Button
-              onClick={handleResetFilters}
-              variant="outline"
-              className="w-full h-[40px] rounded-md border-[#e2e8f0] hover:bg-[#f4f5f6] text-[#111111] font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-none"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset Filter
-            </Button>
-          </div>
-        </div>
-
-        <MonitoringTable
-          students={finalStudents}
-          loading={loading}
-          onUpdateStatus={handleUpdateStatus}
-        />
-      </motion.div>
+      <div className="absolute top-0 left-0 w-full h-1" style={{ backgroundColor: color }} />
+      <h3 className="text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1 group-hover:text-primary transition-colors font-sans">
+        {name}
+      </h3>
+      <div className="flex items-end gap-2 mb-3">
+        <span className="text-2xl font-bold text-foreground leading-none font-sans">{percentage}%</span>
+        {trend && (
+          <span className={`text-xs font-semibold flex items-center font-sans ${trend.direction === 'up' ? 'text-[var(--status-hadir-text)]' : 'text-[var(--status-sakit-text)]'}`}>
+            {trend.direction === 'up' ? <span className="material-symbols-outlined text-[14px]">arrow_upward</span> : <span className="material-symbols-outlined text-[14px]">arrow_downward</span>}
+            {trend.value}%
+          </span>
+        )}
+      </div>
+      <div className="w-full bg-accent rounded-full h-1.5">
+        <div className="h-1.5 rounded-full transition-all duration-500" style={{ width: `${percentage}%`, backgroundColor: color }} />
+      </div>
     </motion.div>
+  )
+}
+
+/* ── Page ── */
+export default function MonitoringPage() {
+  const [classGroup, setClassGroup] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editStatus, setEditStatus] = useState('')
+
+  const { data: monitoring, loading, updateStatus, refetch } = useMonitoringData({
+    class_group: classGroup || undefined,
+    status: statusFilter || undefined,
+  })
+  const { classes } = useAvailableClasses()
+
+  const students = monitoring?.data ?? []
+  const summary = monitoring?.summary
+
+  const handleSave = async (userId: number) => {
+    if (editStatus) {
+      await updateStatus(userId, editStatus)
+    }
+    setEditingId(null)
+    setEditStatus('')
+  }
+
+  // Mock department data (would come from API in production)
+  const departments: DeptCardProps[] = [
+    { name: 'RPL', percentage: 92, color: 'var(--primary)', trend: { value: 2, direction: 'up' }, index: 0 },
+    { name: 'TKJ', percentage: 88, color: '#176c43', index: 1 },
+    { name: 'DKV', percentage: 95, color: '#694f0d', index: 2 },
+    { name: 'PKM', percentage: 81, color: '#8e706d', trend: { value: 4, direction: 'down' }, index: 3 },
+    { name: 'TOI', percentage: 90, color: '#b45309', index: 4 },
+  ]
+
+  return (
+    <div className="flex flex-col gap-8 max-w-7xl mx-auto w-full">
+      {/* Page Header */}
+      <section className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground tracking-tight leading-tight">
+            Absensi Harian Siswa
+          </h2>
+          <p className="text-base text-muted-foreground mt-1 font-sans">
+            Pantau dan kelola kehadiran siswa secara real-time untuk hari ini.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card px-4 py-2 rounded-full border border-border shadow-sm font-sans">
+          <span className="material-symbols-outlined text-[18px]">calendar_today</span>
+          <span>{formatDate()}</span>
+        </div>
+      </section>
+
+      {/* Department Summary Cards */}
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {departments.map((dept) => (
+          <DeptCard key={dept.name} {...dept} />
+        ))}
+      </section>
+
+      {/* Cascade Filters */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
+        className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-wrap items-end gap-4"
+      >
+        <div className="flex-1 min-w-[150px]">
+          <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1 font-sans">Angkatan</label>
+          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary bg-background font-sans">
+            <option>Semua Angkatan</option>
+            <option>Kelas X</option>
+            <option>Kelas XI</option>
+            <option>Kelas XII</option>
+          </select>
+        </div>
+        <div className="flex-1 min-w-[150px]">
+          <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1 font-sans">Jurusan</label>
+          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary bg-background font-sans">
+            <option>Semua Jurusan</option>
+            <option>RPL</option>
+            <option>TKJ</option>
+            <option>DKV</option>
+          </select>
+        </div>
+        <div className="flex-1 min-w-[150px]">
+          <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1 font-sans">Kelas</label>
+          <select
+            value={classGroup}
+            onChange={(e) => setClassGroup(e.target.value)}
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary bg-background font-sans"
+          >
+            <option value="">Semua Kelas</option>
+            {(classes ?? []).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex-1 min-w-[150px]">
+          <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1 font-sans">Status</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary bg-background font-sans"
+          >
+            <option value="">Semua Status</option>
+            <option value="hadir">Hadir</option>
+            <option value="telat">Telat</option>
+            <option value="sakit">Sakit/Izin</option>
+            <option value="alfa">Alpa</option>
+          </select>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => { setClassGroup(''); setStatusFilter(''); refetch() }}
+          className="flex items-center gap-2"
+        >
+          <span className="material-symbols-outlined text-[18px]">refresh</span>
+          Reset
+        </Button>
+      </motion.div>
+
+      {/* Monitoring Table */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4, duration: 0.5 }}
+        className="bg-card border border-border rounded-xl shadow-sm overflow-hidden"
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-accent">
+              <tr>
+                <th className="py-3 px-4 text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground border-b border-border font-sans">NISN</th>
+                <th className="py-3 px-4 text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground border-b border-border font-sans">Nama Lengkap</th>
+                <th className="py-3 px-4 text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground border-b border-border font-sans">Kelas</th>
+                <th className="py-3 px-4 text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground border-b border-border font-sans">Waktu Absen</th>
+                <th className="py-3 px-4 text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground border-b border-border font-sans">Status</th>
+                <th className="py-3 px-4 text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground border-b border-border text-right font-sans">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm divide-y divide-border font-sans">
+              {loading ? (
+                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Memuat data...</td></tr>
+              ) : students.length === 0 ? (
+                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Tidak ada data ditemukan.</td></tr>
+              ) : (
+                students.map((student) => {
+                  const isEditing = editingId === student.id
+                  const waktu = student.timestamp
+                    ? new Date(student.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB'
+                    : '-'
+
+                  if (isEditing) {
+                    return (
+                      <tr key={student.id} className="bg-[var(--inverse-on-surface)] shadow-inner relative">
+                        <td className="py-4 px-4 font-mono text-muted-foreground">{student.nisn}</td>
+                        <td className="py-4 px-4 font-medium">{student.name}</td>
+                        <td className="py-4 px-4">{student.class_group}</td>
+                        <td className="py-4 px-4 text-muted-foreground italic">{waktu}</td>
+                        <td className="py-4 px-4">
+                          <select
+                            value={editStatus || student.status}
+                            onChange={(e) => setEditStatus(e.target.value)}
+                            className="block w-full text-sm border-primary rounded-md focus:ring-primary focus:border-primary bg-card font-semibold text-foreground shadow-sm"
+                          >
+                            <option value="hadir">Hadir</option>
+                            <option value="sakit">Sakit</option>
+                            <option value="izin">Izin</option>
+                            <option value="alfa">Alpa</option>
+                          </select>
+                        </td>
+                        <td className="py-4 px-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setEditStatus('') }}>
+                              Batal
+                            </Button>
+                            <Button size="sm" onClick={() => handleSave(student.id)}>
+                              Simpan
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  }
+
+                  return (
+                    <tr key={student.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-3 px-4 font-mono text-muted-foreground">{student.nisn}</td>
+                      <td className="py-3 px-4 font-medium">{student.name}</td>
+                      <td className="py-3 px-4">{student.class_group}</td>
+                      <td className="py-3 px-4">{waktu}</td>
+                      <td className="py-3 px-4">
+                        <Badge variant={statusVariant(student.status)}>{statusLabel(student.status)}</Badge>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setEditingId(student.id); setEditStatus(student.status) }}
+                        >
+                          Ubah
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        <div className="bg-accent px-4 py-3 border-t border-border flex items-center justify-between font-sans">
+          <span className="text-sm text-muted-foreground">
+            Menampilkan {students.length} siswa {summary ? `(Hadir: ${summary.hadir}, Telat: ${summary.telat}, Alfa: ${summary.alfa})` : ''}
+          </span>
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" disabled>Sebelumnnya</Button>
+            <Button size="sm">1</Button>
+            <Button variant="outline" size="sm">2</Button>
+            <Button variant="outline" size="sm">3</Button>
+            <Button variant="outline" size="sm">Selanjutnya</Button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
   )
 }

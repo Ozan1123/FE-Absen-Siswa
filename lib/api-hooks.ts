@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { tokenAPI, dashboardAPI, monitoringAPI } from './api-client'
+import { tokenAPI, dashboardAPI, monitoringAPI, usersAPI, UserDetails } from './api-client'
 import {
   Token,
   AttendanceStats,
@@ -464,4 +464,32 @@ export function useMonthlyRecap() {
   }, [])
 
   return { data, loading, error }
+}
+
+export function useUsers(filters?: { class_group?: string; search?: string }) {
+  const [data, setData] = useState<{ users: UserDetails[]; total: number }>({ users: [], total: 0 })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      const result = await usersAPI.getAll(filters)
+      if (result && 'data' in result && result.data) {
+        setData(result.data)
+      } else {
+        setError(result.message || 'Failed to fetch users')
+      }
+    } catch {
+      setError('Something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [filters?.class_group, filters?.search])
+
+  return { data, loading, error, refetch: fetchData }
 }
