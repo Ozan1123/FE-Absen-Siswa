@@ -24,7 +24,8 @@ import {
 } from 'recharts'
 
 export default function LaporanPage() {
-  const { data: monthlyData, loading: monthlyLoading } = useMonthlyRecap()
+  const [selectedYear, setSelectedYear] = useState('2023/2024')
+  const { data: monthlyData, loading: monthlyLoading } = useMonthlyRecap(selectedYear)
   const { data: topAlfaData, loading: topAlfaLoading } = useTopAlfaStudents()
   const { exportToExcel, loading: exportLoading } = useExportData()
   const { classes } = useAvailableClasses()
@@ -84,9 +85,13 @@ export default function LaporanPage() {
               <h2 className="font-serif text-xl font-bold text-foreground">Tren Kehadiran Bulanan</h2>
               <p className="text-sm text-muted-foreground font-sans">Persentase kehadiran vs ketidakhadiran (Tahun Ajaran Berjalan)</p>
             </div>
-            <select className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary font-sans cursor-pointer">
-              <option>2023/2024</option>
-              <option>2022/2023</option>
+            <select 
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary font-sans cursor-pointer"
+            >
+              <option value="2023/2024">2023/2024</option>
+              <option value="2022/2023">2022/2023</option>
             </select>
           </div>
           

@@ -91,8 +91,17 @@ export default function MonitoringPage() {
 
   const studentsData = monitoring?.data ?? []
   const students = studentsData.filter(s => {
-    if (!statusFilter) return true
-    return statusVariant(s.status || '') === statusFilter
+    let matchClass = true
+    if (classGroup) {
+      matchClass = s.class_group === classGroup
+    }
+    
+    let matchStatus = true
+    if (statusFilter) {
+      matchStatus = statusVariant(s.status || '') === statusFilter
+    }
+    
+    return matchClass && matchStatus
   })
   const summary = monitoring?.summary
 
@@ -108,7 +117,7 @@ export default function MonitoringPage() {
     { name: 'RPL', color: 'var(--primary)' },
     { name: 'TKJ', color: '#176c43' },
     { name: 'DKV', color: '#694f0d' },
-    { name: 'PKM', color: '#8e706d' },
+    { name: 'LPB', color: '#8e706d' },
     { name: 'TOI', color: '#b45309' },
   ]
 

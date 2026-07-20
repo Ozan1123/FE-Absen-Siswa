@@ -180,7 +180,12 @@ export const monitoringAPI = {
 
   getTopAlfa: () => apiCall<TopAlfaStudent[]>('/attendance/top-alfa'),
   
-  getMonthlyRecap: () => apiCall<MonthlyRecapData[]>('/attendance/monthly-recap'),
+  getMonthlyRecap: (year?: string) => {
+    const searchParams = new URLSearchParams()
+    if (year) searchParams.append('year', year)
+    const qs = searchParams.toString()
+    return apiCall<MonthlyRecapData[]>(`/attendance/monthly-recap${qs ? `?${qs}` : ''}`)
+  },
   
   getLogs: () => apiCall('/attendance/logs'),
 }
@@ -240,6 +245,7 @@ export const usersAPI = {
   delete: (id: number) =>
     apiCall<ApiResponse<string>>(`/users/${id}`, {
       method: 'DELETE',
+      body: JSON.stringify({}),
     }),
   resetPassword: (id: number) =>
     apiCall<ApiResponse<string>>(`/users/${id}/reset-password`, {
@@ -249,16 +255,19 @@ export const usersAPI = {
 
 export const adminNotificationAPI = {
   getAll: () =>
-    apiCall<AdminNotification[]>('/notifications'),
+    apiCall<AdminNotification[]>('/notification'),
   markAsRead: (id: number) =>
-    apiCall(`/notifications/read/${id}`, { method: 'PUT' }),
+    apiCall(`/notification/read/${id}`, { method: 'PUT' }),
   markAllAsRead: () =>
-    apiCall('/notifications/read-all', { method: 'PUT' }),
+    apiCall('/notification/read-all', { method: 'PUT' }),
   deleteBulk: (ids: number[]) =>
-    apiCall('/notifications/bulk', {
+    apiCall('/notification/bulk', {
       method: 'DELETE',
       body: JSON.stringify({ ids }),
     }),
   deleteAll: () =>
-    apiCall('/notifications/all', { method: 'DELETE' }),
+    apiCall('/notification/all', { 
+      method: 'DELETE',
+      body: JSON.stringify({}),
+    }),
 }
