@@ -55,7 +55,7 @@ const JURUSAN_LIST = [
   { id: 'RPL', name: 'RPL - Rekayasa Perangkat Lunak' },
   { id: 'TKJ', name: 'TKJ - Teknik Komputer & Jaringan' },
   { id: 'DKV', name: 'DKV - Desain Komunikasi Visual' },
-  { id: 'PKM', name: 'PKM - Perbankan & Keuangan Mikro' },
+  { id: 'LPB', name: 'LPB - Layanan Perbankan Syariah' },
   { id: 'TOI', name: 'TOI - Teknik Otomasi Industri' },
 ]
 

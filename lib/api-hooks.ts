@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { tokenAPI, dashboardAPI, monitoringAPI, usersAPI, UserDetails, adminNotificationAPI } from './api-client'
+import { AVAILABLE_CLASSES } from './constants'
 import {
   Token,
   AttendanceStats,
@@ -227,43 +228,14 @@ export function usePaginatedTokens() {
 ========================================================= */
 
 export function useAvailableClasses() {
-  const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [classes] = useState<{ id: string; name: string }[]>(() => {
+    return AVAILABLE_CLASSES.map(cls => ({
+      id: cls,
+      name: cls
+    }))
+  })
 
-  useEffect(() => {
-    const fetchClasses = async () => {
-      try {
-        setLoading(true)
-        const result = await monitoringAPI.getClasses()
-
-        if ('data' in result && Array.isArray(result.data) && result.data.length > 0) {
-          // Backend mengembalikan array string: ["X-RPL-1", "XI-RPL-1", ...]
-          // Kita konversi menjadi format { id, name } untuk dropdown
-          if (typeof result.data[0] === 'string') {
-            setClasses(
-              (result.data as string[]).map((cls) => ({
-                id: cls,
-                name: cls, // Gunakan value yang sama untuk label dropdown
-              }))
-            )
-          } else {
-            // Jika backend sudah mengembalikan format { id, name }
-            setClasses(result.data as unknown as { id: string; name: string }[])
-          }
-        }
-      } catch {
-        // Endpoint gagal → biarkan classes tetap kosong, UI masih bisa dipakai
-        setError(null)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchClasses()
-  }, [])
-
-  return { classes, loading, error }
+  return { classes, loading: false, error: null }
 }
 
 export function useAvailableDepartments() {
@@ -271,7 +243,7 @@ export function useAvailableDepartments() {
     { id: 'RPL', name: 'RPL' },
     { id: 'TKJ', name: 'TKJ' },
     { id: 'DKV', name: 'DKV' },
-    { id: 'PKM', name: 'PKM' },
+    { id: 'LPB', name: 'LPB' },
     { id: 'TOI', name: 'TOI' },
   ])
 
@@ -440,7 +412,7 @@ export function useTopAlfaStudents() {
   return { data, loading, error }
 }
 
-export function useMonthlyRecap() {
+export function useMonthlyRecap(year?: string) {
   const [data, setData] = useState<MonthlyRecapData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -449,7 +421,7 @@ export function useMonthlyRecap() {
     const fetchData = async () => {
       try {
         setLoading(true)
-        const result = await monitoringAPI.getMonthlyRecap()
+        const result = await monitoringAPI.getMonthlyRecap(year)
         if (result && 'data' in result && Array.isArray(result.data)) {
           setData(result.data)
         } else {
@@ -462,7 +434,7 @@ export function useMonthlyRecap() {
       }
     }
     fetchData()
-  }, [])
+  }, [year])
 
   return { data, loading, error }
 }
