@@ -11,6 +11,13 @@ import {
   FormLabel,
 } from '@/components/ui/form'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -198,17 +205,22 @@ export function ExportDataForm() {
                         <span className="ml-auto text-[10px] text-[#5a626a]/60 font-light normal-case tracking-[0.5px]">Opsional</span>
                       </FormLabel>
                       <FormControl>
-                        <select
-                          {...field}
-                          className={`${inputBaseClass} appearance-none cursor-pointer`}
+                        <Select
+                          value={field.value || 'all'}
+                          onValueChange={(val) => field.onChange(val === 'all' ? '' : val)}
                         >
-                          <option value="">Semua Jurusan</option>
-                          {JURUSAN_LIST.map((dept) => (
-                            <option key={dept.id} value={dept.id}>
-                              {dept.name}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="w-full h-10 border-[#e2e8f0] bg-[#ffffff] text-[#111111]">
+                            <SelectValue placeholder="Semua Jurusan" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white">
+                            <SelectItem value="all">Semua Jurusan</SelectItem>
+                            {JURUSAN_LIST.map((dept) => (
+                              <SelectItem key={dept.id} value={dept.id}>
+                                {dept.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </FormControl>
                     </FormItem>
                   )}

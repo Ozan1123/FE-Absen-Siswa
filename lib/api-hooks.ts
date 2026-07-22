@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { tokenAPI, dashboardAPI, monitoringAPI, usersAPI, UserDetails, adminNotificationAPI } from './api-client'
+import { tokenAPI, dashboardAPI, monitoringAPI, usersAPI, UserDetails, adminNotificationAPI, notificationAPI } from './api-client'
 import { AVAILABLE_CLASSES } from './constants'
 import {
   Token,
@@ -550,5 +550,141 @@ export function useAdminNotifications(pollingIntervalMs = 60_000) {
     markAllAsRead,
     deleteSelected,
     deleteAll,
+  }
+}
+
+/* =========================================================
+   WHATSAPP GATEWAY MANAGEMENT
+========================================================= */
+
+export function useWAStatus() {
+  const [waStatus, setWaStatus] = useState<{ status: string; qr?: string; phone?: string } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      setLoading(true)
+      const res = await notificationAPI.getWaStatus()
+      if ('data' in res && res.data) {
+        setWaStatus(res.data as any)
+      } else {
+        setWaStatus({ status: 'disconnected' })
+      }
+      setError(null)
+    } catch {
+      setWaStatus({ status: 'disconnected' })
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchStatus()
+  }, [fetchStatus])
+
+  const pair = async () => {
+    try {
+      const res = await notificationAPI.pairWa()
+      fetchStatus()
+      if (res && 'qr' in res && (res as any).qr) {
+        setWaStatus((prev) => ({ ...(prev || { status: 'pairing' }), status: 'pairing', qr: (res as any).qr }))
+      }
+      return res
+    } catch {
+      return { error: 'Failed to trigger pairing' }
+    }
+  }
+
+  const logout = async () => {
+    try {
+      const res = await notificationAPI.logoutWa()
+      fetchStatus()
+      return res
+    } catch {
+      return { error: 'Failed to logout WA' }
+    }
+  }
+
+  const testSend = async (phone: string, message: string) => {
+    try {
+      return await notificationAPI.test({ phone, message })
+    } catch {
+      return { error: 'Failed to send test message' }
+    }
+  }
+
+  return {
+    waStatus,
+    loading,
+    error,
+    refetch: fetchStatus,
+    pair,
+    logout,
+    testSend,
+  }
+}
+
+export function useWASettings() {
+  const [settings, setSettings] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [triggering, setTriggering] = useState(false)
+
+  const fetchSettings = useCallback(async () => {
+    try {
+      setLoading(true)
+      const res = await notificationAPI.getSettings()
+      if ('data' in res && res.data && Array.isArray(res.data)) {
+        const map: Record<string, string> = {}
+        res.data.forEach((item: { setting_key: string; setting_value: string }) => {
+          map[item.setting_key] = item.setting_value
+        })
+        setSettings(map)
+      }
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchSettings()
+  }, [fetchSettings])
+
+  const updateSettingsBulk = async (items: Array<{ setting_key: string; setting_value: string }>) => {
+    try {
+      setSaving(true)
+      const res = await notificationAPI.updateSettings({ settings: items })
+      await fetchSettings()
+      return res
+    } catch {
+      return { error: 'Failed to update settings' }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const triggerNow = async () => {
+    try {
+      setTriggering(true)
+      const res = await notificationAPI.trigger({})
+      return res
+    } catch {
+      return { error: 'Failed to trigger notification blast' }
+    } finally {
+      setTriggering(false)
+    }
+  }
+
+  return {
+    settings,
+    loading,
+    saving,
+    triggering,
+    refetch: fetchSettings,
+    updateSettingsBulk,
+    triggerNow,
   }
 }

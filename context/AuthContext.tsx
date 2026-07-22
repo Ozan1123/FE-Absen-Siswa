@@ -42,10 +42,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const cachedUserStr = localStorage.getItem("user");
 
       if (cachedUserStr) {
-        const cachedUser = JSON.parse(cachedUserStr) as User;
-        if (cachedUser.role === "guru" || cachedUser.role === "admin") {
-          currentUser = cachedUser;
-        }
+        try {
+          const cachedUser = JSON.parse(cachedUserStr) as User;
+          if (cachedUser && cachedUser.role) {
+            currentUser = cachedUser;
+          }
+        } catch { }
       }
 
       if (!currentUser) {

@@ -12,6 +12,7 @@ const navItems = [
   { label: 'Absensi Harian', href: '/admin/monitoring', icon: 'event_available' },
   { label: 'Data Siswa', href: '/admin/data-master', icon: 'group' },
   { label: 'Laporan', href: '/admin/laporan', icon: 'analytics' },
+  { label: 'WhatsApp Bot', href: '/admin/whatsapp', icon: 'chat' },
   { label: 'Pengaturan', href: '/admin/pengaturan', icon: 'settings' },
 ]
 

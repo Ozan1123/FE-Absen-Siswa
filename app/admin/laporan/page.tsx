@@ -5,11 +5,18 @@ import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   useMonthlyRecap,
   useTopAlfaStudents,
   useExportData,
-  useAvailableClasses,
 } from '@/lib/api-hooks'
+import { AVAILABLE_CLASSES } from '@/lib/constants'
 import {
   BarChart,
   Bar,
@@ -28,7 +35,6 @@ export default function LaporanPage() {
   const { data: monthlyData, loading: monthlyLoading } = useMonthlyRecap(selectedYear)
   const { data: topAlfaData, loading: topAlfaLoading } = useTopAlfaStudents()
   const { exportToExcel, loading: exportLoading } = useExportData()
-  const { classes } = useAvailableClasses()
 
   const [filterJurusan, setFilterJurusan] = useState('')
   const [filterKelas, setFilterKelas] = useState('')
@@ -100,7 +106,7 @@ export default function LaporanPage() {
             {monthlyLoading ? (
               <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">Memuat grafik...</div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer minWidth={0} minHeight={0} width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 20, right: 20, bottom: 20, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                   <XAxis dataKey="name" tick={{ fontFamily: 'Inter', fontSize: 12, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
@@ -156,34 +162,41 @@ export default function LaporanPage() {
             <form className="flex flex-col gap-4 flex-1 font-sans">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1.5">Jurusan</label>
-                <select
-                  value={filterJurusan}
-                  onChange={(e) => setFilterJurusan(e.target.value)}
-                  className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer transition-shadow"
+                <Select
+                  value={filterJurusan || 'all'}
+                  onValueChange={(val) => { setFilterJurusan(val === 'all' ? '' : val); setFilterKelas('') }}
                 >
-                  <option value="">Semua Jurusan</option>
-                  <option value="RPL">Rekayasa Perangkat Lunak</option>
-                  <option value="TKJ">Teknik Komputer Jaringan</option>
-                  <option value="DKV">Desain Komunikasi Visual</option>
-                  <option value="LPB">Layanan Perbankan Syariah</option>
-                  <option value="TOI">Teknik Otomasi Industri</option>
-                </select>
+                  <SelectTrigger className="w-full h-10 border-border bg-background">
+                    <SelectValue placeholder="Semua Jurusan" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="all">Semua Jurusan</SelectItem>
+                    <SelectItem value="RPL">Rekayasa Perangkat Lunak (RPL)</SelectItem>
+                    <SelectItem value="TKJ">Teknik Komputer Jaringan (TKJ)</SelectItem>
+                    <SelectItem value="DKV">Desain Komunikasi Visual (DKV)</SelectItem>
+                    <SelectItem value="LPB">Layanan Perbankan Syariah (LPB)</SelectItem>
+                    <SelectItem value="TOI">Teknik Otomasi Industri (TOI)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1.5">Kelas</label>
-                <select
-                  value={filterKelas}
-                  onChange={(e) => setFilterKelas(e.target.value)}
-                  className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer transition-shadow"
+                <Select
+                  value={filterKelas || 'all'}
+                  onValueChange={(val) => setFilterKelas(val === 'all' ? '' : val)}
                 >
-                  <option value="">Semua Kelas</option>
-                  {(classes ?? [])
-                    .filter(c => filterJurusan ? c.id.includes(`-${filterJurusan}-`) || c.id.endsWith(`-${filterJurusan}`) : true)
-                    .map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full h-10 border-border bg-background">
+                    <SelectValue placeholder="Semua Kelas" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="all">Semua Kelas</SelectItem>
+                    {AVAILABLE_CLASSES.filter(c => filterJurusan ? c.includes(`-${filterJurusan}-`) || c.endsWith(`-${filterJurusan}`) : true)
+                      .map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="grid grid-cols-2 gap-3">
@@ -226,7 +239,7 @@ export default function LaporanPage() {
               {topAlfaLoading ? (
                 <div className="h-full flex items-center justify-center text-muted-foreground">Memuat data...</div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer minWidth={0} minHeight={0} width="100%" height="100%">
                   <BarChart data={topAlfaData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
                     <XAxis type="number" tick={{ fontFamily: 'Inter', fontSize: 12, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />

@@ -5,7 +5,15 @@ import { motion } from 'framer-motion'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useMonitoringData, useAvailableClasses } from '@/lib/api-hooks'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useMonitoringData } from '@/lib/api-hooks'
+import { AVAILABLE_CLASSES } from '@/lib/constants'
 
 /* ── helpers ── */
 type StatusVariant = 'hadir' | 'telat' | 'sakit' | 'alpa' | 'belum'
@@ -89,7 +97,6 @@ export default function MonitoringPage() {
     angkatan: angkatan !== 'Semua Angkatan' ? angkatan : undefined,
     jurusan: jurusan !== 'Semua Jurusan' ? jurusan : undefined,
   })
-  const { classes } = useAvailableClasses()
 
   const students = monitoring?.data ?? []
   const summary = monitoring?.summary
@@ -158,69 +165,85 @@ export default function MonitoringPage() {
       >
         <div className="flex-1 min-w-[150px]">
           <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1 font-sans">Angkatan</label>
-          <select 
+          <Select 
             value={angkatan} 
-            onChange={(e) => { setAngkatan(e.target.value); setClassGroup('') }} 
-            className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary bg-background font-sans"
+            onValueChange={(val) => { setAngkatan(val); setClassGroup('') }}
           >
-            <option>Semua Angkatan</option>
-            <option>Kelas X</option>
-            <option>Kelas XI</option>
-            <option>Kelas XII</option>
-          </select>
+            <SelectTrigger className="w-full h-10 border-border bg-background">
+              <SelectValue placeholder="Angkatan" />
+            </SelectTrigger>
+            <SelectContent className="bg-white">
+              <SelectItem value="Semua Angkatan">Semua Angkatan</SelectItem>
+              <SelectItem value="Kelas X">Kelas X</SelectItem>
+              <SelectItem value="Kelas XI">Kelas XI</SelectItem>
+              <SelectItem value="Kelas XII">Kelas XII</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex-1 min-w-[150px]">
           <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1 font-sans">Jurusan</label>
-          <select 
+          <Select 
             value={jurusan} 
-            onChange={(e) => { setJurusan(e.target.value); setClassGroup('') }} 
-            className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary bg-background font-sans"
+            onValueChange={(val) => { setJurusan(val); setClassGroup('') }}
           >
-            <option>Semua Jurusan</option>
-            <option>RPL</option>
-            <option>TKJ</option>
-            <option>DKV</option>
-            <option>LPB</option>
-            <option>TOI</option>
-          </select>
+            <SelectTrigger className="w-full h-10 border-border bg-background">
+              <SelectValue placeholder="Jurusan" />
+            </SelectTrigger>
+            <SelectContent className="bg-white">
+              <SelectItem value="Semua Jurusan">Semua Jurusan</SelectItem>
+              <SelectItem value="RPL">RPL</SelectItem>
+              <SelectItem value="TKJ">TKJ</SelectItem>
+              <SelectItem value="DKV">DKV</SelectItem>
+              <SelectItem value="LPB">LPB</SelectItem>
+              <SelectItem value="TOI">TOI</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex-1 min-w-[150px]">
           <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1 font-sans">Kelas</label>
-          <select
-            value={classGroup}
-            onChange={(e) => setClassGroup(e.target.value)}
-            className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary bg-background font-sans"
+          <Select
+            value={classGroup || 'all'}
+            onValueChange={(val) => setClassGroup(val === 'all' ? '' : val)}
           >
-            <option value="">Semua Kelas</option>
-            {(classes ?? []).filter(c => {
-              let matchAngkatan = true
-              if (angkatan === 'Kelas X') matchAngkatan = c.id.startsWith('X-')
-              if (angkatan === 'Kelas XI') matchAngkatan = c.id.startsWith('XI-')
-              if (angkatan === 'Kelas XII') matchAngkatan = c.id.startsWith('XII-')
-          
-              let matchJurusan = true
-              if (jurusan !== 'Semua Jurusan') matchJurusan = c.id.includes(`-${jurusan}-`) || c.id.endsWith(`-${jurusan}`)
-          
-              return matchAngkatan && matchJurusan
-            }).map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full h-10 border-border bg-background">
+              <SelectValue placeholder="Semua Kelas" />
+            </SelectTrigger>
+            <SelectContent className="bg-white">
+              <SelectItem value="all">Semua Kelas</SelectItem>
+              {AVAILABLE_CLASSES.filter(c => {
+                let matchAngkatan = true
+                if (angkatan === 'Kelas X') matchAngkatan = c.startsWith('X-')
+                if (angkatan === 'Kelas XI') matchAngkatan = c.startsWith('XI-')
+                if (angkatan === 'Kelas XII') matchAngkatan = c.startsWith('XII-')
+            
+                let matchJurusan = true
+                if (jurusan !== 'Semua Jurusan') matchJurusan = c.includes(`-${jurusan}-`) || c.endsWith(`-${jurusan}`)
+            
+                return matchAngkatan && matchJurusan
+              }).map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex-1 min-w-[150px]">
           <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1 font-sans">Status</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary bg-background font-sans"
+          <Select
+            value={statusFilter || 'all'}
+            onValueChange={(val) => setStatusFilter(val === 'all' ? '' : val)}
           >
-            <option value="">Semua Status</option>
-            <option value="hadir">Hadir</option>
-            <option value="telat">Telat</option>
-            <option value="sakit">Sakit/Izin</option>
-            <option value="alfa">Alpa</option>
-            <option value="belum">Belum Absen</option>
-          </select>
+            <SelectTrigger className="w-full h-10 border-border bg-background">
+              <SelectValue placeholder="Semua Status" />
+            </SelectTrigger>
+            <SelectContent className="bg-white">
+              <SelectItem value="all">Semua Status</SelectItem>
+              <SelectItem value="hadir">Hadir</SelectItem>
+              <SelectItem value="telat">Telat</SelectItem>
+              <SelectItem value="sakit">Sakit/Izin</SelectItem>
+              <SelectItem value="alfa">Alpa</SelectItem>
+              <SelectItem value="belum_absen">Belum Absen</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <Button
           variant="outline"

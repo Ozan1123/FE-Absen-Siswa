@@ -150,7 +150,11 @@ export const notificationAPI = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
-  test: () => apiCall('/notification/test', { method: 'POST' }),
+  test: (payload: { phone: string; message: string }) =>
+    apiCall('/notification/test', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   getLogs: () => apiCall('/notification/logs'),
   trigger: (payload: any) =>
     apiCall('/notification/trigger', {
@@ -256,19 +260,25 @@ export const usersAPI = {
 }
 
 export const adminNotificationAPI = {
-  getAll: () =>
-    apiCall<AdminNotification[]>('/notification'),
+  getAll: async () => {
+    const res = await apiCall<AdminNotification[]>('/notifications')
+    if ('data' in res && res.data) return res
+    // Fallback if backend uses singular /notification
+    const fallbackRes = await apiCall<AdminNotification[]>('/notification')
+    if ('data' in fallbackRes && fallbackRes.data) return fallbackRes
+    return { success: true, data: [] as AdminNotification[] }
+  },
   markAsRead: (id: number) =>
-    apiCall(`/notification/read/${id}`, { method: 'PUT' }),
+    apiCall(`/notifications/read/${id}`, { method: 'PUT' }),
   markAllAsRead: () =>
-    apiCall('/notification/read-all', { method: 'PUT' }),
+    apiCall('/notifications/read-all', { method: 'PUT' }),
   deleteBulk: (ids: number[]) =>
-    apiCall('/notification/bulk', {
+    apiCall('/notifications/bulk', {
       method: 'DELETE',
       body: JSON.stringify({ ids }),
     }),
   deleteAll: () =>
-    apiCall('/notification/all', { 
+    apiCall('/notifications/all', { 
       method: 'DELETE',
       body: JSON.stringify({}),
     }),

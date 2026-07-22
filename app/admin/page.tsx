@@ -6,7 +6,15 @@ import { motion } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useAttendanceStats, useMonitoringData } from '@/lib/api-hooks'
+import { AVAILABLE_CLASSES } from '@/lib/constants'
 
 /* ── helpers ── */
 function formatDate() {
@@ -121,7 +129,7 @@ export default function DashboardPage() {
     if (angkatanFilter === 'Kelas XII') matchAngkatan = kelas.startsWith('XII-')
 
     const matchSearch = !search || name.includes(search.toLowerCase()) || nisn.includes(search.toLowerCase())
-    const matchClass = !classFilter || kelas === classFilter
+    const matchClass = !classFilter || classFilter === 'all' || kelas === classFilter
     return matchSearch && matchClass && matchAngkatan
   })
 
@@ -221,32 +229,40 @@ export default function DashboardPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <select
+            <Select
               value={angkatanFilter}
-              onChange={(e) => { setAngkatanFilter(e.target.value); setClassFilter('') }}
-              className="w-full sm:w-36 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary cursor-pointer font-sans"
+              onValueChange={(val) => { setAngkatanFilter(val); setClassFilter('all') }}
             >
-              <option>Semua Angkatan</option>
-              <option>Kelas X</option>
-              <option>Kelas XI</option>
-              <option>Kelas XII</option>
-            </select>
-            <select
-              value={classFilter}
-              onChange={(e) => setClassFilter(e.target.value)}
-              className="w-full sm:w-32 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary cursor-pointer font-sans"
+              <SelectTrigger className="w-full sm:w-36 h-10 border-border bg-background">
+                <SelectValue placeholder="Angkatan" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="Semua Angkatan">Semua Angkatan</SelectItem>
+                <SelectItem value="Kelas X">Kelas X</SelectItem>
+                <SelectItem value="Kelas XI">Kelas XI</SelectItem>
+                <SelectItem value="Kelas XII">Kelas XII</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={classFilter || 'all'}
+              onValueChange={setClassFilter}
             >
-              <option value="">Semua Kelas</option>
-              {Array.from(new Set(monitoringData.map((s) => s.class_group))).filter(Boolean).filter(k => {
-                const kStr = k as string;
-                if (angkatanFilter === 'Kelas X') return kStr.startsWith('X-')
-                if (angkatanFilter === 'Kelas XI') return kStr.startsWith('XI-')
-                if (angkatanFilter === 'Kelas XII') return kStr.startsWith('XII-')
-                return true
-              }).map((k) => (
-                <option key={k as string} value={k as string}>{k as string}</option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full sm:w-36 h-10 border-border bg-background">
+                <SelectValue placeholder="Pilih Kelas" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="all">Semua Kelas</SelectItem>
+                {AVAILABLE_CLASSES.filter(k => {
+                  if (angkatanFilter === 'Kelas X') return k.startsWith('X-')
+                  if (angkatanFilter === 'Kelas XI') return k.startsWith('XI-')
+                  if (angkatanFilter === 'Kelas XII') return k.startsWith('XII-')
+                  return true
+                }).map((k) => (
+                  <SelectItem key={k} value={k}>{k}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

@@ -51,7 +51,9 @@ export const authAPI = {
     });
 
     if (!response.ok) {
-      localStorage.removeItem("authToken");
+      if (response.status === 401) {
+        localStorage.removeItem("authToken");
+      }
       return null;
     }
 
