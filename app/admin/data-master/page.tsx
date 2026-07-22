@@ -5,14 +5,21 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useUsers, useAvailableClasses } from '@/lib/api-hooks'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useUsers } from '@/lib/api-hooks'
+import { AVAILABLE_CLASSES } from '@/lib/constants'
 import { usersAPI, UserDetails } from '@/lib/api-client'
 
 export default function DataMasterPage() {
   const [search, setSearch] = useState('')
   const [classFilter, setClassFilter] = useState('')
   const { data, loading, refetch } = useUsers({ search, class_group: classFilter })
-  const { classes } = useAvailableClasses()
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editingStudent, setEditingStudent] = useState<UserDetails | null>(null)
@@ -22,6 +29,7 @@ export default function DataMasterPage() {
     full_name: '',
     nisn: '',
     username: '',
+    password: '',
     class_group: '',
     parent_phone: '',
   })
@@ -34,6 +42,7 @@ export default function DataMasterPage() {
         full_name: student.full_name,
         nisn: student.nisn,
         username: student.username,
+        password: '',
         class_group: student.class_group,
         parent_phone: student.parent_phone,
       })
@@ -43,6 +52,7 @@ export default function DataMasterPage() {
         full_name: '',
         nisn: '',
         username: '',
+        password: '',
         class_group: '',
         parent_phone: '',
       })
@@ -127,16 +137,20 @@ export default function DataMasterPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select
-          value={classFilter}
-          onChange={(e) => setClassFilter(e.target.value)}
-          className="bg-background border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary font-sans cursor-pointer"
+        <Select
+          value={classFilter || 'all'}
+          onValueChange={(val) => setClassFilter(val === 'all' ? '' : val)}
         >
-          <option value="">Semua Kelas</option>
-          {(classes ?? []).map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+          <SelectTrigger className="w-full sm:w-48 h-10 border-border bg-background">
+            <SelectValue placeholder="Semua Kelas" />
+          </SelectTrigger>
+          <SelectContent className="bg-white">
+            <SelectItem value="all">Semua Kelas</SelectItem>
+            {AVAILABLE_CLASSES.map((cls) => (
+              <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </section>
 
       {/* Table */}
@@ -304,32 +318,48 @@ export default function DataMasterPage() {
                   </div>
 
                   <div>
+                    <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1">
+                      Password {editingStudent ? '(Kosongkan jika tidak diubah)' : ''}
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[16px]">lock</span>
+                      <Input
+                        type="password"
+                        required={!editingStudent}
+                        className="pl-9"
+                        placeholder={editingStudent ? 'Masukkan password baru...' : 'Masukkan password...'}
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
                     <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1">Kelas</label>
-                    <select
-                      required
-                      className="w-full bg-background border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer"
+                    <Select
                       value={formData.class_group}
-                      onChange={(e) => setFormData({ ...formData, class_group: e.target.value })}
+                      onValueChange={(val) => setFormData({ ...formData, class_group: val })}
                     >
-                      <option value="" disabled>Pilih Kelas</option>
-                      {(classes ?? []).map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full h-10 border-border bg-background">
+                        <SelectValue placeholder="Pilih Kelas" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white">
+                        {AVAILABLE_CLASSES.map((cls) => (
+                          <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-1">No Telepon Orang Tua (WhatsApp)</label>
-                    <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[var(--status-hadir-text)] text-[16px]">forum</span>
-                      <Input
-                        type="tel"
-                        className="pl-9 font-mono"
-                        placeholder="08xx-xxxx-xxxx"
-                        value={formData.parent_phone}
-                        onChange={(e) => setFormData({ ...formData, parent_phone: e.target.value })}
-                      />
-                    </div>
+                    <Input
+                      type="tel"
+                      className="font-mono"
+                      placeholder="08xx-xxxx-xxxx"
+                      value={formData.parent_phone}
+                      onChange={(e) => setFormData({ ...formData, parent_phone: e.target.value })}
+                    />
                   </div>
                 </form>
               </div>

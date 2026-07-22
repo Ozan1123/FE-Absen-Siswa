@@ -13,7 +13,8 @@ import {
   AlertCircle,
   PhoneCall,
   Hash,
-  Award
+  Award,
+  KeyRound
 } from 'lucide-react'
 import { AVAILABLE_CLASSES } from '@/lib/constants'
 import { usersAPI } from '@/lib/api-client'
@@ -59,9 +60,9 @@ export default function StudentsMasterPage() {
   const [fullName, setFullName] = useState('')
   const [nisn, setNisn] = useState('')
   const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [classGroup, setClassGroup] = useState('')
   const [parentPhone, setParentPhone] = useState('')
-  const [gender, setGender] = useState<'L' | 'P'>('L')
 
   // Fetch students on mount
   const fetchStudents = async () => {
@@ -90,9 +91,9 @@ export default function StudentsMasterPage() {
     setFullName('')
     setNisn('')
     setUsername('')
+    setPassword('')
     setClassGroup(AVAILABLE_CLASSES[0].replace(/ /g, '-')) // default selection format
     setParentPhone('')
-    setGender('L')
     setIsOpen(true)
   }
 
@@ -102,12 +103,9 @@ export default function StudentsMasterPage() {
     setFullName(student.full_name)
     setNisn(student.nisn)
     setUsername(student.username)
+    setPassword('')
     setClassGroup(student.class_group)
     setParentPhone(student.parent_phone)
-    // Deterministic gender fallback
-    const lastDigit = parseInt(student.nisn.slice(-1)) || 0
-    const isFemale = /siti|rahma|dewi|ani|putri|lia|rina|ayu|indah|fitri/i.test(student.full_name) || (lastDigit % 2 === 0)
-    setGender(student.gender || (isFemale ? 'P' : 'L'))
     setIsOpen(true)
   }
 
@@ -146,17 +144,20 @@ export default function StudentsMasterPage() {
       return
     }
 
-    if (!fullName || !username || !classGroup || !parentPhone) {
-      toast.error('Semua kolom formulir wajib diisi')
+    if (!fullName || !username || !classGroup || !parentPhone || (!editingStudent && !password)) {
+      toast.error('Semua kolom formulir wajib diisi (termasuk password)')
       return
     }
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       nisn,
       full_name: fullName,
       username,
       class_group: classGroup,
       parent_phone: parentPhone,
+    }
+    if (password) {
+      payload.password = password
     }
 
     toast.loading('Menyimpan data siswa...')
@@ -400,15 +401,12 @@ export default function StudentsMasterPage() {
                 {/* NISN */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">NISN (10 Digit)</label>
-                  <div className="relative">
-                    <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                      value={nisn}
-                      onChange={(e) => setNisn(e.target.value)}
-                      placeholder="Contoh: 1220045199..."
-                      maxLength={10}
-                    />
-                  </div>
+                  <Input
+                    value={nisn}
+                    onChange={(e) => setNisn(e.target.value)}
+                    placeholder="Contoh: 1220045199..."
+                    maxLength={10}
+                  />
                 </div>
 
                 {/* Username */}
@@ -438,50 +436,31 @@ export default function StudentsMasterPage() {
                   </Select>
                 </div>
 
-                {/* Gender selection */}
+                {/* Password */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Gender</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setGender('L')}
-                      className={`
-                        py-2 text-xs font-semibold rounded border transition-all cursor-pointer
-                        ${gender === 'L' 
-                          ? 'bg-indigo-600 text-white border-transparent' 
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                        }
-                      `}
-                    >
-                      L (Laki-laki)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setGender('P')}
-                      className={`
-                        py-2 text-xs font-semibold rounded border transition-all cursor-pointer
-                        ${gender === 'P' 
-                          ? 'bg-pink-600 text-white border-transparent' 
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                        }
-                      `}
-                    >
-                      P (Perempuan)
-                    </button>
+                  <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                    Password {editingStudent ? '(Kosongkan jika tidak diubah)' : ''}
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={editingStudent ? 'Masukkan password baru...' : 'Masukkan password...'}
+                      className="pl-10"
+                    />
                   </div>
                 </div>
 
                 {/* Parent Phone */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">No Telepon Wali Murid (WA)</label>
-                  <div className="relative">
-                    <PhoneCall className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                      value={parentPhone}
-                      onChange={(e) => setParentPhone(e.target.value)}
-                      placeholder="Contoh: 6281234567..."
-                    />
-                  </div>
+                  <Input
+                    value={parentPhone}
+                    onChange={(e) => setParentPhone(e.target.value)}
+                    placeholder="Contoh: 6281234567..."
+                  />
                   <p className="text-[9px] text-slate-400">Pesan otomatis WhatsApp akan dikirim ke nomor ini.</p>
                 </div>
               </form>

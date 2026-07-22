@@ -183,11 +183,13 @@ export function useLoginPage() {
         setCurrentScreen("error")
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (loginTimeoutRef.current) clearTimeout(loginTimeoutRef.current)
 
       let type: ErrorType = "unknown"
-      const msg = (err?.message || "").toLowerCase()
+      const errorObj = err as { message?: string }
+      const errorMessage = errorObj?.message || "Terjadi kesalahan"
+      const msg = errorMessage.toLowerCase()
 
       if (msg.includes("password") || msg.includes("kredensial")) {
         type = "credentials"
@@ -197,18 +199,13 @@ export function useLoginPage() {
         type = "role"
       }
 
-      setAppError({ type, message: err?.message || "Terjadi kesalahan" })
+      setAppError({ type, message: errorMessage })
       setCurrentScreen("error")
 
     } finally {
       setIsLoggingIn(false)
     }
   }
-
-
-  /* =========================
-   QR SUBMIT
-  ========================= */
 
   const onQRSubmit = useCallback(async (tokenCode: string) => {
     if (tokenBlocked) return
@@ -243,8 +240,9 @@ export function useLoginPage() {
 
       setTimeout(() => { window.location.href = "/" }, 3000)
 
-    } catch (error: any) {
-      const errorMessage = error?.message || "QR gagal"
+    } catch (error: unknown) {
+      const errorObj = error as { message?: string }
+      const errorMessage = errorObj?.message || "QR gagal"
 
       // ── Jika error adalah token expired, tampilkan inline tanpa redirect ──
       if (errorMessage.includes("kedaluwarsa") || errorMessage.includes(TOKEN_EXPIRED_MSG)) {
